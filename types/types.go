@@ -1,15 +1,13 @@
 package types
 
-import "database/sql"
-
 type Crossword struct {
-	Id        string         `db:"xdid"`
-	Date      sql.NullString `db:"date"`
-	Size      sql.NullString `db:"size"`
-	Title     sql.NullString `db:"title"`
-	Author    sql.NullString `db:"author"`
-	Editor    sql.NullString `db:"editor"`
-	Copyright sql.NullString `db:"copyright"`
-	Publisher string         `db:"publisher"`
-	Puzzle    string         `db:"puzzle"`
+	Id        string  `db:"xdid" json:"id"`
+	Date      string  `db:"date" json:"date"`
+	Size      string  `db:"size" json:"size"`
+	Title     string  `db:"title" json:"title"`
+	Author    *string `db:"author" json:"author,omitempty"`
+	Editor    *string `db:"editor" json:"editor,omitempty"`
+	Copyright *string `db:"copyright" json:"copyright,omitempty"`
+	Publisher string  `db:"publisher" json:"publisher"`
+	Puzzle    string  `db:"puzzle" json:"puzzle"`
 }

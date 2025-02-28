@@ -22,6 +22,7 @@ body {
 }
 
 .crossword {
+    border: 1px solid rgb(96, 96, 96);
     background: repeating-linear-gradient(
          45deg, 
         var(--black) 0px, 
@@ -37,7 +38,7 @@ body {
 }
 
 .clue {
-  font-size: large;
+  font-size: small;
   font-family: monospace;
 }  
 

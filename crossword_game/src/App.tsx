@@ -1,39 +1,28 @@
-import { useRef } from 'react'
-import { CrosswordGrid, CrosswordProvider, CrosswordProviderImperative, DirectionClues, ThemeProvider } from '@jaredreisinger/react-crossword'
 import './App.css'
+import dayjs, { Dayjs } from 'dayjs'
+import { useEffect, useRef, useState } from 'react'
+import { DateInput, DateValue } from '@mantine/dates'
 import HandwritingCanvas from './handwriting.canvas';
-import { updateCanvasPosition } from './updateCanvas';
+import { ActionIcon, Button, Center, Group, Select, Stack, Text } from '@mantine/core';
+import Confetti from '@tholman/confetti';
+import { CluesInput, CrosswordGrid, CrosswordProvider, CrosswordProviderImperative, DirectionClues, ThemeProvider } from '@jaredreisinger/react-crossword'
+import { getDataFromXd, updateCanvasPosition, isAllowedBinarySearch } from './utils';
+import { fakeData } from './fakeData';
+import { IconEraser, IconRestore } from '@tabler/icons-react'
 
-const clue = '';
+const BASE_URL = "http://localhost:8080"
 
-const data = {
-  across: {
-    1: { clue: 'This', answer: 'XXX', row: 0, col: 0 },
-    4: { clue: 'is', answer: 'XXX', row: 0, col: 4 },
-    7: { clue: 'not', answer: 'XXX', row: 1, col: 0 },
-    8: { clue: 'a', answer: 'XXXX', row: 1, col: 4 },
-    10: { clue: 'real', answer: 'XX', row: 2, col: 0 },
-    11: { clue: 'crossword,', answer: 'XX', row: 2, col: 3 }, 12: { clue: 'it', answer: 'XX', row: 2, col: 6 },
-    13: { clue: 'is', answer: 'XXXXXX', row: 3, col: 0 },
-    16: { clue: 'only', answer: 'XXXXXX', row: 4, col: 2 },
-    19: { clue: 'showing', answer: 'XX', row: 5, col: 0 },
-    21: { clue: 'the', answer: 'XX', row: 5, col: 3 },
-    22: { clue: 'kind', answer: 'XX', row: 5, col: 6 },
-    23: { clue: 'of', answer: 'XXXX', row: 6, col: 0 },
-    25: { clue: 'thing', answer: 'XXX', row: 6, col: 5 },
-    26: { clue: 'you', answer: 'XXX', row: 7, col: 1 },
-    27: { clue: 'can', answer: 'XXX', row: 7, col: 5 },
-  },
-  down: {
-    1: { clue: 'create.', answer: 'XXXX', row: 0, col: 0 },
-    2: { clue: 'All', answer: 'XXXX', row: 0, col: 1 },
-    3: { clue: 'of', answer: 'XX', row: 0, col: 2 },
-    4: { clue: 'the', answer: 'XXXXXX', row: 0, col: 4 },
-    5: { clue: 'answers', answer: 'XX', row: 0, col: 5 },
-    6: { clue: 'are', answer: 'XXX', row: 0, col: 6 },
-    9: { clue: '"X"', answer: 'XX', row: 1, col: 7 },
-  },
-};
+type Crossword = {
+  id: string,
+  date: string,
+  title: string,
+  puzzle: string,
+  publisher: string,
+  editor: string | undefined,
+  author: string | undefined,
+  copyright: string | undefined,
+}
+
 
 const darkTheme = {
   gridBackground: 'transparent',
@@ -46,53 +35,173 @@ const darkTheme = {
   allowNonSquare: true
 };
 
+
 function App() {
-  const [cheight, cwidth] = [8, 8];
   const crossword = useRef<CrosswordProviderImperative>(null);
-  let handCanvas = useRef<HandwritingCanvas>(null);
+  const handCanvas = useRef<HandwritingCanvas>(null);
+  const [publishers, setPublishers] = useState<string[]>([]);
+  const [dates, setDates] = useState<Dayjs[]>([]);
+  const [publisher, setPublisher] = useState<string | null>();
+  const [date, setDate] = useState<DateValue>();
+  const [crossData, setCrossData] = useState<Crossword | null>();
+  const [data, setData] = useState<CluesInput | null>(null);
+  const [key, setKey] = useState("guesses");
+  const allowedMonths = new Set(dates.map(d => d.format("YYYY-MM")));
+  const allowedYears = new Set(dates.map(d => d.format("YYYY")));
+  const [isExploding, setIsExploding] = useState(false);
 
 
-  window.onload = () => {
+  const onPublisherChange = (pub: string | null) => {
+    setPublisher(pub)
+    if (pub) {
+      fetch(`${BASE_URL}/dates?publisher=${pub}`)
+        .then(v => v.json())
+        .then(v => {
+          // @ts-ignore
+          setDates(v.map(date => dayjs(date).startOf('day')).sort((a, b) => a.unix() - b.unix()))
+          setDate(dayjs(v[0]).toDate())
+        })
+    }
+  }
+
+  const onSubmit = () => {
+    fetch(`${BASE_URL}/puzzle?publisher=${publisher}&date=${dayjs(date).format("YYYY-MM-DD")}`)
+      .then(r => r.json())
+      .then(v => {
+        console.log(v);
+        setKey(v.id);
+        let datam = getDataFromXd(v.puzzle)
+        setData(datam)
+        setCrossData(v);
+        window.history.pushState({ data: datam, key: v.id, crossData: crossData }, "", "puzzle")
+      })
+  }
+
+
+  useEffect(() => {
+    const handlePopState = (event: PopStateEvent) => {
+      if (event.state) {
+        // Restore state when moving forward/backward
+        setData(event.state.data);
+        setKey(event.state.key);
+        setCrossData(event.state.crossData);
+      } else {
+        // Destroy state (back to selection screen)
+        setData(null);
+        setKey("guesses");
+        setCrossData(null);
+      }
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
     // @ts-ignore
-    const input: HTMLElement = document.querySelector('[aria-label="crossword-input"]');
+    const input: HTMLElement | null = document.querySelector('[aria-label="crossword-input"]');
+    if (!input) return
 
     // @ts-ignore
     const canvas: HTMLCanvasElement = document.getElementById("handwriting");
+
+    if (!input || !canvas) return;
+
     handCanvas.current = new HandwritingCanvas(canvas, {
-      strokeColor: 'rgb(220, 186, 102)',
-      lineWidth: 4,
-      onClick: () => input.click()
+      strokeColor: "rgb(220, 186, 102)",
+      lineWidth: 2,
+      onClick: () => input.click(),
     });
 
-    window.addEventListener("resize", () =>
-      updateCanvasPosition(handCanvas, crossword, cheight, cwidth, true));
+    const updatePosition = () => updateCanvasPosition(handCanvas, crossword);
 
-    const observer = new MutationObserver(() =>
-      updateCanvasPosition(handCanvas, crossword, cheight, cwidth, false));
+    window.addEventListener("resize", updatePosition);
+
+    const observer = new MutationObserver(updatePosition);
     observer.observe(input, { attributes: true, attributeFilter: ["style"] });
 
-    updateCanvasPosition(handCanvas, crossword, cheight, cwidth, true);
-  }
+    updatePosition(); // Initial positioning
+
+    // Fetch publishers
+    fetch(`${BASE_URL}/publishers`)
+      .then((v) => v.json())
+      .then((v) => setPublishers(v));
+
+    // Cleanup function
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      window.removeEventListener("resize", updatePosition);
+      observer.disconnect();
+    };
+  }, []); // Runs only on mount
 
   return (
-    <div style={{ width: "100%", height: "100%" }}>
-      <ThemeProvider theme={darkTheme}>
-        <CrosswordProvider data={data} ref={crossword}>
-          <div style={{ display: 'flex', gap: '2em' }}>
-            <div style={{
-              marginLeft: "15%",
-              width: `${cwidth * 4}em`,
-              border: '1px solid rgb(96, 96, 96)',
-            }}>
-              <CrosswordGrid />
-            </div>
-            <DirectionClues direction="across" />
-            <DirectionClues direction="down" />
-          </div>
-        </CrosswordProvider>
-      </ThemeProvider>
-      <canvas id='handwriting' />
-    </div>
+    <>
+
+      {isExploding && <Confetti total={99} style={{ display: isExploding ? "unset" : "none" }} />}
+
+      {!data &&
+        <Center style={{ border: "1px solid var(--phillipinesilver)", height: window.innerHeight - 40 }}>
+          <Stack>
+            <Text fw={500} fz={24} mx={"auto"}> Crossword Puzzle </Text>
+            <Select
+              searchable
+              label="Publisher"
+              placeholder='Pick value'
+              data={publishers}
+              value={publisher}
+              onChange={onPublisherChange}
+            />
+            <DateInput
+              label="Date"
+              value={date}
+              onChange={setDate}
+              excludeDate={(date) => !isAllowedBinarySearch(date, dates)}
+              placeholder='Select Date'
+              valueFormat='YYYY-DD-MM'
+              getMonthControlProps={(month) => {
+                return { disabled: !allowedMonths.has(dayjs(month).format("YYYY-MM")) }
+              }}
+              getYearControlProps={(year) => {
+                return { disabled: !allowedYears.has(dayjs(year).format("YYYY")) }
+              }}
+            />
+            <Button mx={"auto"} mt={"md"} color='green' onClick={onSubmit}> Go </Button>
+          </Stack>
+        </Center >
+      }
+
+      <Center style={{
+        position: data ? "unset" : "absolute",
+        top: 0,
+        border: "1px solid var(--phillipinesilver)",
+        visibility: data ? 'visible' : 'hidden'
+      }}>
+        <Stack>
+          <Text mx={"auto"}>{crossData?.title}</Text>
+          <ThemeProvider theme={darkTheme}>
+            <CrosswordProvider storageKey={key} useStorage data={data || fakeData} ref={crossword}
+              onCrosswordComplete={(v) => setIsExploding(v)}>
+              <Group wrap='nowrap' align='flex-start'>
+                <div style={{ width: `50em` }}>
+                  <CrosswordGrid />
+                </div>
+                <Stack>
+                  <Group ml={"auto"} mr={20} mb={-40}>
+                    <ActionIcon color='transparent' onClick={() => crossword.current?.reset()}>
+                      <IconRestore color='white' /></ActionIcon>
+                    <ActionIcon color='transparent'><IconEraser color='white' /></ActionIcon>
+                  </Group>
+                  <Group my={-20} wrap='nowrap' align='flex-start'>
+                    <DirectionClues direction="across" />
+                    <DirectionClues direction="down" />
+                  </Group>
+                </Stack>
+              </Group>
+            </CrosswordProvider>
+          </ThemeProvider>
+          <canvas id='handwriting' />
+        </Stack>
+      </Center>
+
+    </>
   )
 }
 

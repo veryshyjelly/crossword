@@ -7,12 +7,36 @@ import (
 	"net/http"
 )
 
+func enableCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*") // Allow all origins (change "*" to a specific origin if needed)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests (OPTIONS method)
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		next.ServeHTTP(w, r)
+	})
+}
+
 func main() {
-	http.HandleFunc("/publishers", Publishers)
-	http.HandleFunc("/dates", Dates)
-	http.HandleFunc("/puzzle", Puzzle)
+	mux := http.NewServeMux()
+
+	// Wrap the handler with CORS middleware
+	handler := enableCORS(mux)
+
+	fmt.Println("Server running on :8080")
+
+	mux.HandleFunc("/publishers", Publishers)
+	mux.HandleFunc("/dates", Dates)
+	mux.HandleFunc("/puzzle", Puzzle)
 	fmt.Println("Server started at http://localhost:8080")
-	http.ListenAndServe(":8080", nil)
+
+	http.ListenAndServe(":8080", handler)
 }
 
 func Publishers(w http.ResponseWriter, r *http.Request) {
