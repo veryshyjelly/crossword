@@ -45,6 +45,13 @@ class HandwritingCanvas {
     this.canvas.addEventListener("mouseup", this.handleMouseUp.bind(this));
   }
 
+  destroy() {
+    // Remove event listeners
+    this.canvas.removeEventListener("mousedown", this.handleMouseDown);
+    this.canvas.removeEventListener("mousemove", this.handleMouseMove);
+    this.canvas.removeEventListener("mouseup", this.handleMouseUp);
+  }
+
   private handleMouseDown(e: MouseEvent) {
     const rect = this.canvas.getBoundingClientRect();
     const x = e.clientX - rect.left;

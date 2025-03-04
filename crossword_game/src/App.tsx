@@ -8,7 +8,7 @@ import Confetti from '@tholman/confetti';
 import { CluesInput, CrosswordGrid, CrosswordProvider, CrosswordProviderImperative, DirectionClues, ThemeProvider } from '@jaredreisinger/react-crossword'
 import { getDataFromXd, updateCanvasPosition, isAllowedBinarySearch } from './utils';
 import { fakeData } from './fakeData';
-import { IconEraser, IconRestore } from '@tabler/icons-react'
+import { TbEraser, TbRestore } from 'react-icons/tb'
 
 const BASE_URL = "http://localhost:8080"
 
@@ -64,6 +64,11 @@ function App() {
     }
   }
 
+  const eraseCurrent = () => {
+    let cv = handCanvas.current;
+    crossword.current?.setGuess(cv?.i || 0, cv?.j || 0, "");
+  }
+
   const onSubmit = () => {
     fetch(`${BASE_URL}/puzzle?publisher=${publisher}&date=${dayjs(date).format("YYYY-MM-DD")}`)
       .then(r => r.json())
@@ -95,7 +100,6 @@ function App() {
 
     window.addEventListener("popstate", handlePopState);
 
-    // @ts-ignore
     const input: HTMLElement | null = document.querySelector('[aria-label="crossword-input"]');
     if (!input) return
 
@@ -107,7 +111,7 @@ function App() {
     handCanvas.current = new HandwritingCanvas(canvas, {
       strokeColor: "rgb(220, 186, 102)",
       lineWidth: 2,
-      onClick: () => input.click(),
+      onClick: () => { input.click(); console.log("clicked") },
     });
 
     const updatePosition = () => updateCanvasPosition(handCanvas, crossword);
@@ -126,6 +130,7 @@ function App() {
 
     // Cleanup function
     return () => {
+      handCanvas.current?.destroy();
       window.removeEventListener("popstate", handlePopState);
       window.removeEventListener("resize", updatePosition);
       observer.disconnect();
@@ -138,7 +143,11 @@ function App() {
       {isExploding && <Confetti total={99} style={{ display: isExploding ? "unset" : "none" }} />}
 
       {!data &&
-        <Center style={{ border: "1px solid var(--phillipinesilver)", height: window.innerHeight - 40 }}>
+        <Center style={{
+          border: "1px solid var(--phillipinesilver)",
+          height: window.innerHeight - 40,
+          borderRadius: "20px",
+        }}>
           <Stack>
             <Text fw={500} fz={24} mx={"auto"}> Crossword Puzzle </Text>
             <Select
@@ -172,6 +181,7 @@ function App() {
         position: data ? "unset" : "absolute",
         top: 0,
         border: "1px solid var(--phillipinesilver)",
+        borderRadius: "20px",
         visibility: data ? 'visible' : 'hidden'
       }}>
         <Stack>
@@ -186,8 +196,9 @@ function App() {
                 <Stack>
                   <Group ml={"auto"} mr={20} mb={-40}>
                     <ActionIcon color='transparent' onClick={() => crossword.current?.reset()}>
-                      <IconRestore color='white' /></ActionIcon>
-                    <ActionIcon color='transparent'><IconEraser color='white' /></ActionIcon>
+                      <TbRestore color='white' /></ActionIcon>
+                    <ActionIcon color='transparent' onClick={() => eraseCurrent()}>
+                      <TbEraser color='white' /></ActionIcon>
                   </Group>
                   <Group my={-20} wrap='nowrap' align='flex-start'>
                     <DirectionClues direction="across" />
