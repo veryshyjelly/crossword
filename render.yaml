@@ -1,7 +1,0 @@
-services:
-  - type: web
-    name: crossword    
-    env: go
-    plan: free
-    buildCommand: go build -o app main.go
-    startCommand: ./app
