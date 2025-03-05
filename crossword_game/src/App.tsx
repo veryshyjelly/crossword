@@ -10,7 +10,7 @@ import { getDataFromXd, updateCanvasPosition, isAllowedBinarySearch } from './ut
 import { fakeData } from './fakeData';
 import { TbEraser, TbRestore } from 'react-icons/tb'
 
-const BASE_URL = "http://localhost:8080"
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 type Crossword = {
   id: string,
