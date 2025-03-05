@@ -31,6 +31,7 @@ func main() {
 
 	fmt.Println("Server running on :8080")
 
+	mux.Handle("/", http.FileServer(http.Dir("./game")))
 	mux.HandleFunc("/publishers", Publishers)
 	mux.HandleFunc("/dates", Dates)
 	mux.HandleFunc("/puzzle", Puzzle)
